@@ -1,0 +1,142 @@
+Sistemas Operacionais - Processos
+
+-->Modelo de Processo
+	Computadores modernos são capazes de operar múltiplas tarefas simultaneamente. O conceito de processo, um dos mais importantes para qualquer SO, refere-se a um programa em execução acompanhando de valores de tempo de execução, como:
+– Código executável;
+– Pilha de execução: contém valores de variáveis locais;
+– Stack pointer: registrador da CPU que armazena em qual área de memória está a pilha;
+– Program Counter: registrador da CPU que armazena a próxima instrução a ser executada;
+– Valores dos registradores gerais da máquina;
+
+Processos  = atividade (ativo)
+Programas = algoritmos (passivo).
+
+Ambiente (Contexto de Software + Espaço de endereçamento) = {Espaço de endereçamento, Arquivos abertos, Processos filhos, Sinais, Estatísticas de uso}
+
+Execução (Contexto de Hardware) = {Contador de programa (PC), Apontador de pilha, Conjunto de Registradores, Estado de Execução}
+
+	[Classificação] Custo de troca de contexto e manutenção:
+– Lightweight (threads);
+– Heavyweight (processo tradicional): cada processo, composto tanto pelo ambiente como pela execução, possui um único fluxo de controle
+(PC) e roda de forma independente dos demais. Em um determinado instante, há vários processos ativos ao mesmo tempo, e o processador é chaveado entre diversos processos.
+
+-->Criação e término de processos
+
+	Sistemas de um único propósito possuem um esquema mais simples e previsível de processos em execução. Contudo, sistemas de propósito geral, que englobam os PCs atuais, são imprevisíveis, pois os computadores possuem diferentes programas instalados, devido ao hardware diferente e à necessidade dos usuários. Desta forma, são necessários mecanismos para permitir a criação de processos.
+	Os processos são criados:
+– Início do sistema;
+– Execução de uma chamada ao sistema de criação de processo por um processo em execução;
+– Requisição do usuário;
+– Início de um job de lote;
+
+	Quando um sistema operacional é carregado, são criados diversos processos que executam em primeiro plano e interagem
+com usuários, ao passo que outros executam em segundo plano. Estes são chamados de daemons. Normalmente os processos são criados por outros, projetando, assim, uma hierarquia em árvore. Tais processos continuam associados, sendo que todos são filhos/descendentes do processo init/systemd. Em alguns sistemas, é possível listar o ppid (parent pid) do processo.
+Obs.: Windows não apresenta hierarquia de processos.
+
+a) Unix: fork() cria um clone idêntico ao processo que o chamou. Normalmente, executa execve depois da chamada para mudar o “programa” em execução.
+b) Windows: CreateProcess.
+
+	Condições de término de processos:
+– Saída normal (voluntária)
+– Saída por erro (voluntária)
+– Erro fatal (involuntário)
+– Cancelamento por outro processo (involuntário)
+
+-->Estados de Processos
+	Sistemas monoprocessados possuem apenas um único processo rodando ao mesmo tempo.
+	Apesar de processos serem autossuficientes, muitas vezes necessitam acessar recursos ou comunicar com outro processo. Quando um processo está esperando um evento, diz-se que está bloqueado (e.g. leitura em disco, leitura de rede, esperando entrada do usuário).
+	Estados de processo: rodando, bloqueado, pronto.
+(1) O processo bloqueia-se aguardando uma entrada;
+(2) O evento aguardado pelo processo ocorreu, pode-se iniciar a executar;
+(3) O tempo de posse do processador esgotou-se;
+(4) O processo é escolhido pelo escalonador para executar;
+
+-->Processos CPU Bound e I/O Bound
+
+a) CPU-bound (afinidade à CPU): passam a maior parte do tempo usando a CPU, nos estados rodando ou pronto;
+b) I/O-bound (afinidade à Entrada e Saída): passam a maior parte do tempo em bloqueado por causarem muitas operações de entrada e saída. Muitas aplicações de PCs que rodam em primeiro plano são I/O Bound, pois passam muito tempo em estado bloqueado, aguardando informações dos usuários.
+
+-->Implementação de Processos
+
+	Todas as informações sobre um processo são mantidas na tabela de processos (ou bloco de controle de processo), onde há campos que dizem respeito à gerência do processo, à gerencia da memória e arquivos. Cada processo tem um identificador único conhecido como pid (process id).
+	Uma entrada por processo, variam entre os diferentes sistemas operacionais.
+	Durante a execução, o processo compartilha o processador com outros processos em execução através da troca de contexto: operação de salvamento dos registradores de um processo e posterior restauração de registradores de outro processo.
+	Para manter a ilusão de múltiplos processos sequenciais em uma máquina com uma CPU e muitos dispositivos de E/S, cada dispositivo de E/S possui uma área de memória chamada vetor de interrupções, que contém os endereços de procedimentos dos serviços de interrupção e funções de tratamento geradas por cada tipo de dispositivo. Procedimento:
+
+(1) O processo P1 solicita a operação;
+(2) O SO altera o estado de P1 para bloqueado;
+(3) O SO escolhe um dos processos prontos (P2) e o coloca para executar;
+(4) A solicitação de P1 é atendida pelo hardware;
+(5) O hardware interrompe P2, salvando seu estado de execução na pilha;
+(6) O hardware acessa o vetor de interrupções;
+
+	Mecanimos de interrupção e exceção:
+
+	A rotina de tratamento de interrupção é executada pelo SO.
+(1) Os registradores que foram empilhados pelo hardware são salvos na tabela de processo do P2;
+(2) A interrupção é tratada;
+(3) O processo P1 é colocado na fila de prontos;
+(4) O SO acessa a entrada da tabela de processos escolhido e carrega o conteúdo da tabela nos registradores de máquina (restauração);
+(5) O processo escolhido reinicia a execução
+
+-->Escalonamento de Processos
+
+	O SO é responsável por gerenciar os recursos de processamento de um computador (escalonamento do processador), no qual a interação entre processos é realizada através de mecanismos de comunicação. O escalonador é a parte do SO que elege um processo para ser executado quando múltiplos processos encontram-se no estado pronto. O algoritmo de escalonamento é o responsável pela determinação de que processo vai rodar e por quanto tempo, definindo a política de utilização do processador pelos processos.
+	Quando um processo solicita operações blocantes (E/S), sua execução fica suspensa até que o evento solicitado ocorra.
+	Preempção: é a suspensão temporária da execução de um processo. Classificação de escalonadores:
+	
+1) Preemptivos
+	Um processo obtém o processador, que permanece rodando até o seu término ou se solicitar uma operação que ocasione o seu bloqueio, de modo que nenhuma entidade externa "tira a CPU à força" do processo.
+	Escalonadores não-preemptivos são de projeto simples, porém permitem o abuso no tempo de CPU de um determinado programa, possibilitando que processo obtenha o monopólio do processador, impedindo outros de rodarem. Isso viola vários critérios de um bom escalonador.
+2) Não-Preemptivos
+	Cada processo possui um tempo (time-slice) de
+posse do processador, que, quando esgostado, o SO retira o processador deste processo e permite que outro se execute. O controle de tempo de execução é feito por interrupção. Processadores modernos possuem um clock que gera interrupções a uma frequência determinada, e o SO mantém um contador que é decrementado a cada clock tick. O valor inicial deste contador corresponde ao tempo máximo de permanência do processo com a CPU.
+	Escalonadores preemptivos asseguram um uso mais balanceado da CPU e são utilizados na maioria dos SOs modernos. Entretanto, o projeto de tais escalonadores, além de ser complexo, introduz complicações na programação de processos concorrentes. Como os processos podem ser interrompidos em um tempo arbitrário, eles devem proteger suas estruturas de dados contra a interferência de outros processos (regiões críticas).
+	
+	Critérios de um bom escalonador:
+- Justiça: garantir que todos os processos terão chances justas de uso de processador( não são chances iguais!);
+- Eficiência: quando existir trabalho a fazer, o processador deve estar ocupado;
+- Minimizar o tempo de resposta: reduzindo o tempo dos usuários interativos, ocasiona a redução do tempo entre a entrada de usuário e a resposta dada (não considera tempo total de execução);
+- Minimizar o turnaround: reduzir o tempo desde o lançamento do processo até seu término. Soma de tempo de espera por recursos (memória, processador, E/S) e tempo de utilização da CPU. Mais utilizado em processamento batch;
+- Minimizar waiting time: minimizar o tempo de espera pela CPU;
+- Maximizar throughtput: maximizar o número de tarefas executados em uma unidade de tempo;
+
+Obs.:Não é possível atingir todos esses critérios de escalonamento, muito são contraditórios entre si. E.g. Um algoritmo que maximiza o throughput não é justo com processos de execução demorada.
+
+	Algoritmos clássicos de escalonamento:
+1) First Come First Served (FCFS)
+	O processo obtém a CPU de acordo com a ordem da chegada das solicitações. Não-preemptivo e de simples implementação. Processos que solicitam a CPU são colocados em uma fila de prontos, gerenciada segunda a política FIFO.
+	Vantagens: simples implementação, CPU sempre em uso.
+	Desvantagens: Impossibilidade de se prever quando um processo vai iniciar, tempo média de espera de processos não é priorizado, processos que usam muito a CPU levam vantagens sobre processos que causam muito seu bloqueio.
+- Justiça: Não. Um processo pode monopolizar;
+- Eficiência: OK. A CPU sempre é utilizada, se existe trabalho;
+- Minimizar o tempo de resposta: Não, caso um processo monopolize;
+- Minimizar o turnaround: Tarefas longas sendo executadas primeiro aumentam o turnaround;
+- Minimizar waiting time: O tempo de espera não é considerado durante o escalonamento;
+- Maximizar throughtput: Se a primeira tarefa for longa, o tempo de término fica alta;
+
+Tempo de Espera = Tempo de Serviço – Tempo de Chegada
+
+2) Round-Robin (Alternância circular)
+	Cada processo tem o direito de usar o processador por um intervalo de tempo pré-definido,  denominado quantum. Quando este se esgota, o processador é dado a outro processo.
+	Problema: determinação de um bom valor a ser atribuído ao
+quantum. Valores muito longos tendem ao comportamento de um FCFS, enquanto valores muito curtos propiciam a perda de vários requisitos, tais como eficiência. Assim, é necessário considerar o tempo médio da troca de contexto e o tempo de resposta desejado. Por padrão, adota-se 100 ms.
+	Para o algoritmo ser eficiente é necessário que o tempo de troca de contexto seja consideravelmente menor que a execução do
+programa.
+
+3) Escalonamento com Prioridades
+	Alguns processos são prioritários e devem ser executados antes dos outros, como em SOs em tempo real. Nesse sentido, a cada processo é atribuída uma prioridade. A  atribuição pode ser de forma estática ou dinâmica.
+- Estática: os processos são divididos em classes e a cada classe é atribuída uma prioridade. A cada prioridade existe uma fila de prontos associada;
+- Dinâmica: o sistema analisa o comportamento dos processos e atribui prioridades favorecendo um certo tipo de comportamento. Processos I/O devem possuir prioridade alta. Prioridade dinâmica: 1/f, onde f é a fração do quantum de tempo usada na última rodada do processo.
+
+4) Shortest Job First
+	Projetado para sistemas em lote, seu objetivo é reduzir o tempo de turnaround, requerendo assim que o tempo total de execução do processo seja conhecido antes do seu início. Dado um conjunto de processos, execute os de menor tempo de execução antes.
+	Aplicação para sistemas interativos: Espera comando ---> Executa comando. Se considerarmos cada “executa comando” como um trabalho, podemos aplicar o SJF para processos interativos.
+	Desvantagem: como determinar o tempo de execução do comando? O problema da parada é indecidível, sendo necessário combinar técnicas para estimar valores baseados em execuções anteriores (aging). Quando um valor fica antigo, ele praticamente não influencia na estimativa.
+	
+-->Escalonamento em Dois Níveis
+	Um caso típico de escalonamento em dois níveis é o algoritmo que considera tanto os processos que estão em memória como os processos que estão em disco:
+– 1º nível: manipula os processos que estão carregados em memória (FCFS, SJF, ...);
+– 2º Nível: examina periodicamente o tempo de execução dos processos e os tira ou carrega em memória;
+
+	Quando o modelo de processos inclui threads, podemos ter também em 2 níveis. O primeiro determina qual processo irá rodar e o segundo determina qual thread do processo selecionado irá executar.

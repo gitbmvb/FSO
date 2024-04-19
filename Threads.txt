@@ -1,0 +1,112 @@
+Threads
+
+--> Threads x Processos
+	A troca de contexto entre processos tradicionais é pesada para o sistema. Processos tradicionais não compartilham memória e possuem uma única thread (fluxo) de controle.
+	Devido a maior simplicidade de escalonamento, as threads (processos leves) separam os conceitos de agrupamento de recursos e execução: processos agrupam recursos enquanto threads são escalonadas para execução, permitindo que  múltiplas execuções ocorram no mesmo ambiente do processo com um grau de independência entre elas.
+	No modelo multithread, a entidade processo é dividida em processo (corresponde ao ambiente) e thread (corresponde ao estado de execução). Um processo é composto por várias threads que compartilham o ambiente: memória, descritor de arquivos, etc. Existem duas entidades na tabela de processo: processo que armazena as informações de ambiente e thread que armazena as informações de execução. Desta forma, um processo é composto por diversas threads, cada qual com seu contexto de hardware (execução) e compartilham o contexto de software (ambiente + espaço endereçamento).
+	
+-->Estados de Threads
+
+	Uma thread pode se bloquear à espera de um recurso. Neste momento, outra pode se executar (ou uma thread de outro processo), de forma que a troca de contexto é mais leve. Threads distintas em um processo não são tão independentes quanto processos distintos, porém compartilham as mesmas variáveis globais.
+	Modelo de estados:
+(1) A thread bloqueia-se aguardando uma entrada;
+(2) O evento aguardado pela thread ocorreu, pode-se iniciar a executar;
+(3) O tempo de posse do processador esgotou-se;
+(4) A thread é escolhido pelo escalonador para executar;
+	
+	Uma thread pode apagar completamente o que a outra está fazendo: esta proteção não é garantida pelo SO pois é impossível e desnecessário. A proteção dos recursos entre threads é responsabilidade do programador, sendo necessários mecanismos de sincronização.
+	A pilha é uma estrutura em memória, porém cada thread possui a sua própria pilha e não compartilha seus dados com as outras threads. As threads chamam procedimentos diferentes, em tempos diferentes, resultando em uma história de execução diferente e por isso precisam de pilhas próprias.
+	Chamadas de controle:
+– thread_create: cria uma thread nova, passando uma função como argumento para iniciar a execução;
+– thread_exit: termina a thread em execução;
+– thread_yield: permite que uma thread desista voluntariamente da CPU;
+
+-->Por que utilizar múltiplas threads?
+1) Melhora-se o tempo de programas nos quais há chamadas blocantes de diversas fontes;
+2) Melhor uso dos recursos da máquina;
+3) Threads são mais fáceis de criar e destruir do que processos, afinal apenas área de execução precisa ser alocada;
+4) Threads podem ser mais interessantes caso seja necessário criar várias dinamicamente;
+5) É um modelo de programação mais simples;
+6) Quando um programa deve tratar dados de diversas fontes;
+7) É possível criar um paradigma mais simples ao decompor múltiplas tarefas em diversas threads mais simples.
+
+-->Implementação de threads
+	Existem diferentes formas para implementar uma thread:
+a) Implementar o modelo de processos e threads a nível de SO, criando abstrações de processos e de threads. O SO deve se tornar responsável por isso. Desvantagem: continua inserindo um custo caro de troca de contexto.
+b) Implementar o modelo de processos heavyweight e simular múltiplas threads através de bibliotecas. Mais viável em SO com kernel não-monolítico.
+c) Implementar threads no sistema operacional: o kernel do sistema operacional deve criar as threads, organizar seu escalonamento e término. Há uma tabela no kernel que contém os dados de cada thread. Quando uma thread é bloqueada, o kernel é responsável por escalonar outra thread para rodar, mesmo que seja de outro processo.
+	Implementação de Threads em modo kernel: [COPIAR IMAGEM]
+	
+d) Implementação de threads no modo usuário: As threads são manipuladas por funções e simuladas no processo de usuário, onde cada processo precisa de sua própria tabela de threads. Geralmente, o escalonador do SO é não-preemptivo. Quando uma thread for perder o controle, ela chama um procedimento do ambiente de execução para selecionar outra thread para executar.
+	Cada processo pode ter seu próprio algoritmo de escalonamento. Muitas vezes, o tipo de algoritmo de escalonamento é melhor para certos problemas. A troca de contexto é muito rápida entre as threads.
+	Para evitar que chamadas bloqueantes do sistema bloqueem todas as threads, deve-se colocar uma “capa” antes de todas as
+chamadas. Assim, se uma chamada blocante for realizada, ela é mascarada pela biblioteca de threads, que faz o teste de bloqueio. Se a chamada realmente for bloquear, ela só é realizada caso não exista thread para executar, senão, outra thread é executada.
+	Desvantagens: as operações de I/O exigem mais e podem ocasionar o bloqueio de todas as threads.
+[COPIAR IMAGENS]
+
+e) Threads em Modo Híbrido: combinam as vantagens das threads em modo usuário e threads em modo kernel. Um processo pode ter várias threads de kernel, e cada thread kernel, por sua vez, pode conter diversas threads em modo usuário.
+[copiar imagem]
+
+
+-->Modelos de Execução de Threads
+	Existem alguns padrões que podem ser seguidos para a solução comum de criação e término de threads.
+- Thread dinâmicas: uma thread é criada para tratar cada requisição;
+- Thread estática: o número de threads é fixo.
+
+1) Modelo Despachante/Trabalhador
+	Uma thread despachante (Dispatcher) é responsável por receber o trabalho e selecionar uma thread trabalhadora para entregar o trabalho. A thread trabalhadora executa a solicitação e sinaliza o dispatcher.
+	[copiar imagem]
+E.g. Um servidor web recebe várias requisições de diversos clientes, as quais podem envolver leitura de disco. Se a mesma thread é responsável por receber uma nova requisição e ler o disco, pode-se ter um problema. Especialmente se o equipamento de rede for mais rápido que o disco.
+-Vantagens: consumo rápido de mensagens, boa distribuição das requisições, facilidade para mudar o número de threads (flexibilidade).
+-Desvantagem: pouco uso de CPU pela thread despachante.
+
+2) Modelo Time
+	As threads são autônomas e gulosas por serviço. Elas acessam um "poll" de tarefa, obtém e as executam.
+[copiar imagem]
+
+- Vantagens: bom consumo de mensagens, boa distribuição de requisições, flexibilidade em mudar o número de tarefas.
+- Desvantagens: Cuidado na implementação. Em computadores modernos, uma thread inicia o programa e deve ser responsável por criar todas as outras. Após isso, ela deve se tornar uma thread normal do time.
+
+3) Modelo Pipeline
+	Cada thread realiza uma tarefa específica produzindo dados de entrada de outra thread. Os dados de saída final são produzidos pela última thread.
+[copiar imagem]
+Desvantagens: se uma thread for muito mais lenta que as outras, todo o processamento é desperdiçado. Muitas vezes não e fácil dividir a tarefa em um pipeline.
+
+
+-->Condição de corrida (Condição de disputa) e regiões críticas
+
+	Como o SO determina através do seu escalonador como os processos irão executar, não é possível saber em que ordem isto irá ocorrer, além de que trocas de contexto podem acontecer a qualquer momento. Condições de corrida levam a resultados inesperados e devem ser evitadas, assegurando-se que os processos que estejam trabalhando na mesma região de memória não sejam interrompidos, ou aguardem o término do outro processo antes de iniciar suas atividades. Essa atividade é conhecida como exclusão mútua (mutual exclusion).
+	Um processo precisa ter acesso à dados compartilhados para poder cooperar entre si. O trecho de código que há acesso de leitura ou escrita à dados compartilhados é chamado de seção crítica (ou região crítica). Normalmente é mais de uma instrução. Para evitar as condições de corrida, são colocadas funções antes de entrar e depois de sair da seção crítica, as quais utilizam diversas técnicas para impedir que dois processos estejam simultaneamente na seção crítica e garantir a exclusão mútua.
+	Variável de impedimento: busca marcar se existe alguém na seção crítica. Se for 1, não procede. Se ocorrer uma troca de contexto depois de sair do loop e antes do processo/thread trocar o valor para 1, há uma condição de corrida.
+
+int thread(){
+	while(true){
+		while(lock == 1);
+		lock = 1;
+		regiao_critica();
+		lock = 0;
+	}
+}
+
+int thread(){
+	while(true){
+		while(lock == 1);
+		lock = 1;
+		regiao_critica();
+		lock = 0;
+	}
+}
+
+
+-->Técnicas de Implementação de Exclusão Mútua
+1) Inibir Interrupções
+2) Com espera ocupada:
+	- Estrita Alternância;
+	- Algoritmo de Peterson;
+	- Utilizar hardware adicional;
+3) Com bloqueio de processos:
+	- Semáforos;
+	- Mutexes;
+	- Locks;
+	- Monitores;
+	- Variáveis de condição;

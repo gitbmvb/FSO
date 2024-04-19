@@ -1,0 +1,263 @@
+-->Técnicas de exclusão mútua
+	Critérios para uma boa solução de exclusão mútua:
+- Nunca dois processos podem estar simultaneamente em suas regiões críticas;
+- Nada pode ser afirmado sobre a velocidade ou sobre o número de CPUs;
+- Nenhum processo executando fora de sua região crítica pode bloquear outros processos;
+- Nenhum processo deve esperar eternamente para entrar em sua região crítica;
+
+1) Inibir Interrupções:
+	Se for possível desabilitar interrupções, um processo pode desabilitar e ligar antes e depois de acessar sua região crítica, respectivamente. Um processo que desabilitou as interrupções não pode ser retirado à força da CPU e não é interrompido pelo escalonador. Sendo assim, não há problemas de acessos concorrentes.
+	Ao inibir interrupções, um algoritmo garante todas as características. Porém, os programas podem ter defeitos: grande impacto se um programador “esquecer” de desabilitar. Função amplamente utilizada apenas em modo kernel, o programador no espaço de usuário não tem acesso à essa chamada.
+		
+2) Espera ocupada (busy waiting):
+
+	while (vez != minha);
+	Desperdiça o tempo que possui CPU fazendo um teste trivial.  Deve ser utilizada quando há uma expectativa de esperar pouco/muito pouco. Algumas vezes é obrigatória em modo kernel.
+	- Estrita Alternância;
+	- Algoritmo de Peterson;
+Resolve o problema da exclusão mútua para dois processos. A ideia é que um processo marque que está na seção crítica enquanto outro aguarda a saída. Apesar de ser bem implementada em processos iguais, ela viola a regra de um processo fora da seção crítica bloquear outro processo, e não deve ser utilizada quando um processo é muito mais lento do que outro. Não é uma solução genérica.
+	- Utilizar hardware adicional;
+	
+3) Bloqueio de Processos:
+	
+	if (vez != minha) wait_my_turn(vez);
+	O processo espera a permissão de entrada na seção crítica e executa uma primitiva, chamada de sistema, que causa o seu bloqueio até que a seção crítica seja liberada. O bloqueio ocasiona uma troca de contexto entre processos/threads e pode causar uma espera longa. Chamadas blocantes podem não estar disponíveis em modo protegido.
+	- Semáforos;
+	- Mutexes;
+	- Locks;
+	- Monitores;
+	- Variáveis de condição;
+
+
+Estrita alternância
+
+
+int turn = 0;
+
+int thread_A(){
+	while(true){
+		while(turn != 1);
+		regiao_critica();
+		turn = 0;
+		regiao_nao_critica();
+	}
+}
+
+int thread_B(){
+	while(true){
+		while(turn != 0);
+		regiao_critica();
+		turn = 1;
+		regiao_nao_critica();
+	}
+}
+
+
+Algoritmo de Peterson (Aprimoramento do algoritmo de Dekker): 
+
+Os processos possuem um id único (0 ou 1) e chamam uma função enter_region, que retorna só quando for seguro entrar na seção. Ao terminar o processamento, a função leave_region deve ser chamada para indicar que outros processos podem prosseguir. Isso garante que um processo fora da seção crítica não bloqueie outros;
+Esse algoritmo minimizou o número de loops e comparações necessárias, além de garantir a exclusão mútua.
+
+turn = 0;
+interested[0] = false;
+interested[1] = false;
+
+void enter_region(int id){
+	int other = 1 - id;
+	interested[id] = true;
+	turn = id;
+	while(turn == id && interested[other] == true);
+}
+
+void leave_region(int id){
+	interested[id] = false;
+}
+
+
+A instrução TSL (Test and Set Lock)
+
+Para resolver o problemas das variáveis de impedimento, a instrução TSL requer uma função de hardware adicional, a qual testa e altera um valor de maneira atômica (indivisível). Operações atômicas são importantes em diversas áreas da computação.
+Desta forma, podemos fazer um código parecido com as variáveis de impedimento:
+Obs.: Faz o teste do loop e altera a variável para 1 atomicamente
+	while (test_and_set(v) != 0);
+	
+	Isto equivale equivale logicamente a:
+	while (lock == 0) {};
+	lock = 1;
+
+	
+Algumas linguagens de programação permitem criar variáveis atômicas. E. g., em C++ podemos declarar std::atomic<int>x;
+
+Esperada Ocupada: Desvantagens
+
+A espera ocupada deve ser usada em modo protegido ou quando a espera do lock for baixa. Porém, se essas situações não forem atingidas, é desejável colocar o processo para dormir, de forma que ele não consuma CPU.
+Além disso, existe o problema de prioridades invertidas, quando utiliza-se um escalonador de prioridade estática.
+
+Prioridade Invertida:
+
+1. O processo de PB (prioridade baixa) entra na seção crítica;
+2. O processo PA (prioridade alta) entra no loop de acesso à seção crítica;
+3. Como o processo de alta prioridade fica utilizando a CPU, o escalonador sempre irá escolher esse processo para ser executado;
+4. O processo de baixa prioridade não é executado nunca.
+
+
+==============
+Técnicas para Exclusão Mútua Com bloqueio de processos 
+
+1)Dormir e Acordar: Algumas primitivas podem ser utilizadas para
+que o processo seja bloqueado. A primitiva sleep/wakeup pode ser usada para colocar um processo para dormir ou acordá-lo, de modo que ele não consuma CPU enquanto espera para entrar na seção crítica.
+
+Produtor Consumidor: Uma thread irá produzir itens e uma outra irá consumí-los (produção e consumo em paralelo). Porém, existe um buffer limitado. Desta forma, o produtor deve dormir, caso esteja cheio e o consumidor deve dormir se vazio. Um deve acordar o outro.
+
+#define N 100
+int count = 0;
+
+void producer(){
+	int item;
+	while(true){
+		item = produce_item();
+		if(count == N) sleep(producer);
+		insert_item(item);
+		count++;
+		if(count == 1) wakeup(consumer);
+	}
+}
+
+void consumer(){
+	int item;
+	while(true){
+		if(count == 0) sleep(consumer);
+		item = remove_item();
+		count--;
+		if(count == N-1) wakeup(producer);
+		consume_item(item);
+	}
+}
+
+Pode existir uma troca de contexto que cause problema no código, se ela for imediatamente antes do valor novo ser corrigido.
+Obs.: A chamada wakeup(id) não existe na linguagem C e a chamada sleep é utilizada em outro sentido.
+
+Semáforo: pensando no problema do Produtor-Consumidor, Dijkstra sugeriu um novo tipo de variável chamada semáforo que serviria como contador de quantos sinais foram recebidos, onde 0 significa nenhum sinal. Os semáforos se baseiam, assim como TSL, em operações atômicas:
+a) down(sem) ou P(sem): decrementa o valor do semáforo se for maior do que 0 e continua; ou bloqueia se o valor for 0.
+b) up(sem) ou V(sem): incrementa o valor de um semáforo. Se algum processo estiver dormindo nele, algum deles é escolhido para tratar. Nenhum processo é bloqueado ao dar um up ou wakeup.
+
+semaphore s = 0;
+int thread1(){
+	printf("T1 - Início\n");
+	up(s);
+	printf("T1 - Fim\n");
+}
+
+int thread2(){
+	down(s);
+	printf("T2\n");
+}
+
+
+A primeira mensagem sempre é “T1 – Inicio”. “T1- Fim” ou “T2” podem ser impressos depois dela, dependendo do escalonamento.
+
+#define N 100
+typedef int semaphore;
+semaphore mutex = 1;
+semaphore empty = N;
+semaphore full = 0;
+
+void producer(){
+	int item;
+	while(true){
+		item = produce_item();
+		down(&empty);
+		down(&mutex);
+		insert_item(item);
+		up(&mutext);
+		up(&full);
+	}
+}
+
+void consumer(){
+	int item;
+	while(true){
+		down(&full);
+		down(&mutex);
+		item = remove_item();
+		up(&mutex);
+		up(&mutex);
+		consume_item(item);
+	}
+}
+
+Obs.: O semáforo mutex foi usado para garantir que as threads não acessem simultaneamente a seção crítica (semáforo binário). Já o semáforo full e empty foram usados para sincronizar o trabalho (semáforo de sincronização).
+
+Mutex (lock exclusivo): são uma das mais eficientes e rápidas estruturas de comunicação entre threads.
+Quando a capacidade de contagem do semáforo não é necessária, pode-se usar uma versão simplificada chamada mutex, o qual pode estar em dois estados: travados (bloqueia a chamada de lock) e destravado (permite que o processo continue). São uma solução simples, facilmente implementados e que resolvem o problema da exclusão mútua.
+
+void thread(){
+	mutex_lock(&my_mutex);
+	regiao_critica();
+	mutex_unlock(&my_mutex);
+}
+
+	Quando um processo pede um mutex_lock e ele está destravado, o processo continua a execução. Se o mutex está travado, ele bloqueia até que alguém libere. Ao liberar o mutex, apenas um processo/thread que está aguardando é liberado (necessário para garantir a seção crítica).
+	A maioria das implementações dos computadores modernos utilizam mutex como chamada blocantes. Porém é possível utilizar busy waiting para implementar um mutex: ele utiliza CPU até que a chamada termine.
+	Muitas vezes as estruturas vão compartilhar os dados, mas não vão escrever. Desta forma, se a operação for de apenas leitura, mais de uma thread pode acessar a seção crítica sem condições de corrida.
+	Locks definem duas funções:
+a) read_lock: indicando que a thread irá apenas ler osdados compartilhados;
+b) Write_lock: indicando que a thread irá escrever e só pode entrar na seção crítica quando apenas um processo/thread estiver nela.
+
+Obs.: Quando não há contenção, não é necessário uma troca de contexto entre processos e SO.
+
+Monitores:
+	A comunicação com semáforos e mutexes pode parecer simples, no entanto vários erros podem surgir em um projeto multithread. E.g., no código do Produtor/Consumidor o caos irá acontecer se inverter as linhas dos mutex. Linhas de código diferentes devem manter uma ordem de aquisição dos mutex, caso contrário não funciona! Com semáforos e mutex, o programador recebe explicitamente as ferramentas que irão proteger a área de dados.
+	Monitores são uma coleção de rotinas, variáveis e estruturas de dados reunidas em um tipo especial de módulo ou pacote. Processos podem chamar rotinas de um monitor, mas nunca acessar os dados dentro deles, e apenas um processo pode estar ativo em um determinado monitor a cada instante.
+	Monitores são normalmente primitivas de uma linguagem de programação. Desta forma, o paralelismo e a exclusão mútua são projetados pelo compilador e não pelo programador.
+	Normalmente, o compilador usa as estruturas de baixo nível, porém linguagens modernas não possuem o conceito de monitor nelas. O Java a palavra-chave “synchronized” que permite para adicionar a um objeto, que garante a exclusão mútua entre todos os métodos synchronized de um mesmo objeto.
+	Outro problema é a necessidade de bloquear. E no caso do produtor/consumidor, o que fazer para o consumidor esperar ter uma tarefa? Neste caso precisamos de um mecanismo de sincronização: variáveis de condição.
+	
+Variáveis de condição (funções wait e signal):
+	Quando o Produtor vai produzir um item e o buffer está cheio, ele vai esperar em um mecanismo de sincronização chamado variável de condição. Quando um consumidor consome um item, ele
+desbloqueia o produtor usando a chamada. A chamada pode parecer igual a sleep e wakeup que falhava. Essa chamada falha apenas porque algum outro processo altera o sleep antes.
+	Variáveis de condição assumem que a condição existente antes do teste de dormir não é alterada.
+	
+void produtor(){
+	int item;
+	item = produz_item();
+	if(n == N) wait(&cond);
+	insert_item(item);
+}
+
+	Essa condição pode ser atingida, adicionando o mecanismo de sincronização dentro de um monitor. Em C, que não existe monitores, o pacote Pthreads definiu que a variável de condição exige o uso de um mutex em conjunto para garantir que essa condição é satisfeita.
+	Variáveis de condição não são contadores. Se alguém emitir um signal antes de um wait, esse sinal será perdido para sempre. Deste modo é necessário verificar a condição antes do wait.
+
+Produtor Consumidor c/ Monitores: [COPIAR CÓDIGO]
+
+Troca de mensagens:
+	A troca de mensagens pode ser utilizada em ambientes distribuídos:
+a) send(msg): envia uma mensagem;
+b) recv(msg): recebe uma mensagem;
+
+	A troca é explícita e pode incluir um envio por rede (processos em máquinas diferentes) ou cópia de regiões de memória de processos diferentes (processos na mesma máquina).
+	Quando projetamos a comunicação por troca de mensagens, podemos ter diversas características:
+– Primitivas bloqueadas ou não bloqueadas: o processo deve bloquear até o outro receber a mensagem ou pode aguardar?
+– Tipo de comunicação: um processo send envia para apenas um processo, ou pode enviar para vários (broadcast).
+	
+	A troca de mensagens é amplamente utilizada em programação paralela (MPI – Message Passing Interface).
+	
+void produtor(){
+	while(true){
+		produz_item(&item);
+		send(item);
+	}
+}
+
+void consumidor(){
+	while(true){
+		recv(item);
+		consome_item(item);
+	}
+}
+
+Barreiras:
+	Dependendo do problema, uma thread deve prosseguir para uma nova fase apenas quando todas as outras terminarem a primeira. Isso é possível ao se colocar uma barreira ao final de cada fase.
+	Uma barreira é uma chamada blocante, onde todos os processos aguardam e são desbloqueados quando o último processo chama.
+	As barreiras não estão explicitamente criadas no pacote Pthread, mas é possível implementá-la usando um mutex, uma variável de condição e um contador.
+	Exemplo de barreira: [COPIAR CÓDIGO]
