@@ -1,18 +1,18 @@
 #include <signal.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
-int contador = 0;
+void handler(int signal_number){}
 
-void handler(int signal_number){
-    contador++;
-}
-
-int main(){
-    struct sigaction sa = {};
-    sa.sa_handler = &handler;
-    sigaction (SIGUSR1, &sa, NULL);
-    printf("Press E to exit:\n");
-    while(getchar() != 'E');
-    printf("SIGUSR1 received %d times\n", contador);
-    return 0;
+int main(void){
+    signal(SIGUSR1, handler);
+    signal(SIGUSR2, handler);
+    pause();
+    if(fork() == 0)
+        exit(0);
+    pause();
+    wait(0);
+    pause();
 }
