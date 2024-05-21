@@ -44,7 +44,7 @@ int main(void){
 /* 
      * pthread_cond_wait bloqueia aguardando uma condição
      * É necessário obter o mutex antes de bloquear.
-     * A thread libera o mutx e aguarda a condição atomicamente.
+     * A thread libera o mutex e aguarda a condição atomicamente.
      * Comportamento indefinido se não tiver o lock do mutex
      * Utilizar apenas um mutex por condição
 */
