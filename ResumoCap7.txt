@@ -1,0 +1,108 @@
+Módulo 7 – Gerência de Memória
+
+	A memória RAM é um dos principais recursos computacionais e precisa ser cuidadosamente gerenciada. O recurso não está disponível infinitamente e não existe memória rápida e não-volátil, de forma que os SOs modernos precisam ser projetados para lidar com essas características.
+	Hierarquia de Memória:
+--------------- + Velocidade
+Registradores
+Cache
+Memória Principal
+Memória Secundária: Discos, DVD
+--------------- + Custo por bit
+
+	Enquanto os registradores são manipulados diretamente pelos programas ou usados pelo hardware, a memória cache é completamente gerenciada pelo hardware.
+	
+Funções Básicas
+
+	Programas são armazenados em memória secundária e precisam ser transferidos pelo sistema operacional para a memória principal antes de serem executados.
+	Devido a diferença de tempo, é desejável que se mantenha em memória os processos em uso e reduzir as operações de E/S para melhor performance do sistema. Desta forma, a gerência de memória deve manter o maior número de processos residentes, buscando maximizar o compartilhamento de recursos.
+	Mesmo na ausência de espaço livre, deve-se permitir que novos processos sejam criados. A memória alocada para um programa deve ser protegida de outros programas que estejam em execução. A principal função de um gerente de memória é determinar o esquema de gerência que será utilizado e implementá-lo eficientemente. Algumas funções secundárias incluem: controlar a alocação de pedaços de memória a processos, e liberar pedaços de memória alocados a processos que não são mais necessários.
+
+--> Sem Abstração de Memória
+
+	Esquema de alocação contígua simples implementada nos primeiros sistemas operacionais. Cada programa vê uma memória física completa, e o usuário possui controle sobre todo o espaço de memória. Não é necessário mudanças no hardware e sua implementação é simples.
+	Dois programas iguais não podem executar ao mesmo tempo: se um programa escreve um valor em uma posição, o outro irá sobrescrever esse valor alguma hora.
+	O modelo sem abstração de memória permite diferentes organizações na estrutura da memória e SO:
+	
+1. Alocação contígua simples
+	O SO pode estar na parte inferior da memória e o restante está disponível para o usuário. Como os erros nos programas podem causar falhas gerais no sistema, o hardware pode ser necessário para proteger áreas do SO de programas executando. Para isso, pode usar um registrador para proteção ou então pode-se manter o SO em uma região de memória de apenas leitura.
+	Há também uma organização onde alguns drivers do dispositivo são armazenadas em memória de leitura. O SO é armazenado em memória de leitura e escrita, e a porção ROM é chamada de BIOS. Este modo foi utilizado pelos primeiros computadores pessoais com MS-DOS.
+
+	Essas técnicas não são viáveis para se utilizar múltiplos processos em execução de um programa. Elas também trazem um grande desperdício computacional: se um programa não utilizar toda a memória RAM, um grande espaço livre é encontrado na estação.
+	A grande maioria dos SOs modernos permitem a execução de múltiplos programas. Assim, uma região de memória (protegida por hardware) é alocada para o SO e os programas dividem o espaço de usuário,  técnica esta conhecida como Alocação Particionada.
+
+Alocação Particionada Estática (MFT - Multiprogramming with a fixed number of tasks):
+	Nos primeiros computadores multiprogramáveis, a memória era divida em regiões (partições) de tamanho fixo, de modo que alterar o tamanho dessas partições exigia o reinicio do sistema operacional. Cada partição pode ter apenas um programa em execução e um processo sempre roda na mesma partição até terminar.
+	A principal desvantagem da alocação particionada estática é o desperdício de memória, já que um processo nem sempre vai utilizar toda memória disponível na partição. Este fenômeno é chamado de fragmentação interna.
+	
+	No início, os computadores podiam usar apenas uma partição, mesmo que outra estivesse disponível. Isso era por causa das instruções de manipulação da memória e controle de fluxo que usavam endereços de memória absolutos. Essas funções eram decididas em tempo de compilação e não podiam ser alteradas.
+
+
+Alocação estática particionada absoluta e realocável
+	Para não invadirem o espaço de memória uns dos outros, os programas são mantidos na mesma partição para executar, mesmo que outra partição esteja disponível.
+	Uma solução temporária para esse problema foi criada no IBM 360 chamada de realocação
+estática: quando um programa era carregado em um determinado endereço, uma constante era adicionada a todas as funções de manipulação de memória. Modificar todas as instruções não é um trabalho
+trivial, porém, com os avanços dos compiladores, montadores e loaders, essa técnica tornou-se viável e os programas puderam ser executados em múltiplas partições - Alocação particionada estática realocável.
+	Com a Alocação Particionada Realocável, os endereços acessados pelo programa são alterados durante a criação do processo para a partição que o sistema operacional o alocou.
+
+-->Abstração de Memória e Espaço de Endereçamento
+
+	Soluções de uma abstração de memória surgiram, de forma a tratar a memória como algo relativo dentro do processo, e não um endereço absoluto de memória. No entanto, esse modelo não serve para o problema da proteção contra os outros processos ativos.
+	Dois problemas devem ser resolvidos na gerência de memória: proteção e realocação. Para solucionar a proteção é criado o conceito de espaço de endereçamento. Com ele, cada processo possui um conjunto de endereços associados a ele e que não podem referenciar outros (algumas exceções são feitas para quando os processos desejam compartilhar dados na mesma memória - memória compartilhada).
+	Uma das maneiras mais simples de se implementar a proteção e a realocação é com Registrador de base e limite.
+	
+-->Registrador de Base e Limite
+	Todos os endereços no código binário executável são de 0 a x (onde X é o tamanho do binário). A CPU é equipada com dois registradores especiais, base e limite.
+	Nessa estratégia, os programas são sempre carregados em memórias consecutivas. Quando o processo é carregado em memória, o registrador base armazena o valor do endereço físico de onde o programa começa enquanto o registrador limite armazena o comprimento do programa. Toda vez que um processo referencia a memória, seja para buscar uma instrução, ler ou escrever uma palavra de dados, o hardware da CPU automaticamente adiciona o valor base ao endereço gerado pelo processo antes de enviá-lo ao barramento de memória. Da mesma forma, é verificado se esse valor extrapola os limites definidos para o programa (base + limite). Caso extrapole, uma falta é gerada e o programa é abortado.
+	Uma desvantagem da realocação usando registrador base e limite é a necessidade de uma adição e uma comparação em cada referência de memória. Comparações são operações rápidas no hardware, mas as somas podem ser lentas, exceto quando um circuito de adição especiais seja usado.
+
+-->Alocação Particionada Dinâmica
+	O uso de registradores base e limite permite o esquema de partições de tamanho variável. Desta forma, o sistema não aloca previamente espaços de memória, mas a medida que os programas são criados, uma área de memória com o tamanho necessário para o programa é reservada a eles.
+
+--> Multiprogramação de tamanho variável (MVT - Multiprogramming with a variable number of tasks):
+	Resolve o problema de desperdício de memória do MFT. A memória é dividida em um conjunto de partições de tamanho variável. O número, tamanho e localização dos processos em memória varia com o tempo. Apesar de solucionar o problema da fragmentação interna, esses "buracos" que surgem durante a execução são um novo problema: fragmentação externa. Existem algumas estratégias para minimizar os efeitos dessa fragmentação:
+1. Agrupamento de áreas adjacentes
+2. Compactação de memória.
+	Pode ser realizada quando a fragmentação de memória atingiu níveis intoleráveis. Os processos são movidos dentro da memória principal para novas regiões. Causa um congelamento de todos os processos, pois nada além do gerenciamento de memória se executa.
+	A compactação de memória é um processo lento e de grande impacto na performance. Todos os processos em execução precisam ser parados temporariamente, para que as cópias de memória possam ser realizadas (copiar grandes regiões de memória não é rápido).
+	Sendo função do SO gerenciar os recursos computacionais, cabe a ele decidir onde encaixar os processos na memória. Estratégias:
+1. First fit
+	Aloca no primeiro espaço grande o suficiente. O gerenciador de memória verifica a lista de segmentos livres até encontrar um que seja grande o suficiente. O espaço livre é dividido em duas partes, uma para o processo alocado e outra para memória não utilizada (assumindo que não ocorreu um improvável encaixe exato).
+
+2. Best fit
+	Aloca no menor espaço grande o suficiente. Percorre toda a lista, do início ao fim, procurando encontrar um espaço que seja adequado, ao invés de usar um espaço grande demais. Esse algoritmo busca diminuir a fragmentação de memória na esperança de encontrar um lugar ótimo para colocar o processo.
+
+3. Worst fit
+	Aloca no maior espaço grande o suficiente. O best fit tende a criar espaços minúsculos inúteis na memória. Para tentar contornar esse problema, a estratégia worst fit tenta colocar o espaço na área onde tem mais espaço livre. Dessa forma, ele acredita que o espaço restante tem maior chance de ser útil.
+
+
+	O first fit termina rapidamente por não precisar analisar toda a lista de memória livre. Comparando o fist fit e o best fist com simulações, foi mostrado que o first fit com espaços livres maiores na média. As simulações mostraram que o worst fit não é uma boa estratégia na média, por isso, o first fit é frequentemente utilizado.
+
+-->Gerenciando Memória Livre
+
+	O sistema reserva uma quantidade de memória para um processo iniciado. Quando este possui um tamanho fixo, é preciso alocar uma quantidade de memória exatamente do tamanho do processo. No entanto, a maioria dos sistemas permite que o tamanho da área de dados cresça durante a execução, sendo então necessário alocar um espaço de memória maior que o tamanho inicial.
+	Em todos os casos, quando a alocação é um processo dinâmico, é necessário manter uma forma de organizar e rastrear o uso de memória.
+
+1. Mapa de bits
+	A memória é divida em em unidade de alocações, tipicamente 1 byte. Cada unidade de alocação corresponde a um bit no mapa, sendo 0 se livre e 1 se ocupada. O tamanho da unidade de alocação é importante: no mínimo, temos um bit representando o tamanho da palavra em memória. Porém é possível aumentar o tamanho dessa representação (e.g. 1 bit irá representar 2 bytes).
+	Essa técnica reduz o tamanho do mapa de bits, porém causa um desperdício de memória quando o tamanho requisitado não é múltiplo da unidade de alocação do mapa de bits. Uma unidade de alocação grande acarreta em desperdício no uso de
+memória, enquanto uma unidade de alocação pequena necessita de um mapa de bits grande.
+	O mapa de bits é uma forma simples de controlar as palavras, apesar de ser lento para procurar por regiões vazias dentro do mapa de bits, tornando seu uso prático inviável.
+
+2. Lista encadeada
+	Cada membro dessa lista contém o tipo de segmento (livre ou ocupado), o endereço de início, o tamanho do segmento e um ponteiro para o próximo elemento. A lista encadeada possui a vantagem de ser boa para atualizar. Ao liberar um espaço, deve-se fundir a lista com seus vizinhos. Para isto, uma variação comum é o uso de listas duplamente encadeadas que permitem operações de obter os dois vizinhos, e não apenas o próximo.
+	
+-->Swapping
+
+	Muitas vezes um programa pode não ser executado devido à falta de uma partição livre, enquanto existem vários processos que ocupam memória mas não são utilizados (daemons pré-instalados no sistema). Manter todos esses processos em memória pode ser desnecessário e inviável. A estratégia mais simples para lidar com esse problema é a swapping.
+
+a) Swap out: O SO escolhe um processo residente e transfere esse processo para a memória secundária. Posteriormente, se o processo despertar ou for escolhido pelo escalonamento, ele é movido do disco para a memória principal como se nada tivesse acontecido.
+
+b) Swap in: O processo é movido do disco para memória (swap in), e pode ser alocado em uma região diferente da região previamente alocada a ele. Neste caso, o software pode precisar alterar todas as instruções dela (modificação de instruções) e pode tornar inviável esse processo. Aqui, os registradores base e limite funcionam adequadamente.
+
+	Há uma área reservada no disco, chamada de área de swap.
+- No Linux, ao se instalar o SO gera-se explicitamente uma partição de swap.
+- No Windows, é um arquivo dentro de uma partição conhecida pelo SO e pode ser configurada.
+
+-->Overlay
+
+	O programador divide seu programa em módulos, informando quais módulos devem estar ativos simultaneamente. O SO é responsável por carregar e liberar os módulos da memória. Assim, módulos independentes não precisam ocupar a memória e o programa não precisa ser todo carregado em memória.
